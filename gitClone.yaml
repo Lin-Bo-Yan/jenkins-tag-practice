@@ -1,0 +1,46 @@
+--- 
+- name: 'git clone'
+  hosts: localhost
+  gather_facts: false
+  vars:
+    git_dir: /home/ci-user/wells_lin/git
+  tasks:
+    - name: 'git clone'
+      git:
+        repo: 'ssh://git@gitlab-pid.vir888.com:10022/wells_lin/{{ project }}.git'
+        dest: '{{ git_dir }}'
+        clone: yes
+        update: yes
+    - name: 'git checkout {{ tag }}'
+      git:
+        repo: 'ssh://git@gitlab-pid.vir888.com:10022/wells_lin/{{ project }}.git'
+        dest: '{{ git_dir }}'
+        version: "{{ tag }}"
+- name: '部署檔案'
+  hosts: '{{ host }}'
+  gather_facts: false
+  remote_user: ci-user
+  vars:
+    git_dir: /home/ci-user/wells_lin/git
+  tasks:
+    - name: '文件複製到test測試機'
+      copy:
+        src: "{{ git_dir }}"
+        dest: "/home/ci-user/wells_lin/"
+    - name: 'docker-compose up'
+      shell: docker-compose -f {{ git_dir }}/docker-compose.yaml up -d
+    - name: "index.html"
+      uri:
+        url: http://localhost:8082
+        method: GET
+        return_content: yes
+      register: result
+    - name: "show index.html"
+      debug:
+        msg: "{{ result.content }}"
+
+
+# docker-compose-nginx-php
+# ansible-playbook gitClone.yaml -e "project=docker-compose-nginx-php host=test1 tag=b12f7c1b result.content='wellsss111'"
+# ansible test* -m shell -a "cd /home/ci-user/wells_lin && ls"
+# ansible test1 -m shell -a "curl http://localhost:8082"
