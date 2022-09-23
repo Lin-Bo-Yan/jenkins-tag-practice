@@ -29,18 +29,17 @@
         dest: "/home/ci-user/wells_lin/"
     - name: 'docker-compose up'
       shell: docker-compose -f {{ git_dir }}/docker-compose.yaml up -d
-    - name: "index.html"
+    - name: "url"
       uri:
         url: http://localhost:8082
         method: GET
         return_content: yes
       register: result
-    - name: "show index.html"
-      debug:
-        msg: "{{ result.content }}"
 
 
-# docker-compose-nginx-php
-# ansible-playbook gitClone.yaml -e "project=docker-compose-nginx-php host=test1 tag=b12f7c1b result.content='wellsss111'"
+# ansible-playbook gitClone.yaml -e "project=docker-compose-nginx-php host=test* tag=b12f7c1b"
 # ansible test* -m shell -a "cd /home/ci-user/wells_lin && ls"
 # ansible test1 -m shell -a "curl http://localhost:8082"
+# git log --oneline --graph
+# git tag -d
+# ansible-playbook switch-version.yaml -e "host=test* tag=dev-20220921-version1.0"
