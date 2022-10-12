@@ -1,0 +1,69 @@
+---
+- hosts: "{{ host }}"
+  gather_facts: False
+  vars:
+    force_deploy: False
+
+  tasks:
+    - block:
+        - include_role:
+            name: station_env
+
+        - block:
+            - name: get remote machine hostname
+              shell: hostname
+              register: hostname
+
+            - name: set basic variable
+              set_fact:
+                service: "{{ item }}"
+              when: item in project|regex_replace('.*/')
+              with_items: "{{ 'admin, agent, api, rd, blueprint'.split(', ') }}"
+
+            - name: set variable based on station({{ station }})
+              set_fact:
+                branch: "{% if station == 'prod' or service == 'blueprint' %}master{% else %}{{ station }}{% endif %}"
+                source: "{{ project | regex_replace('.*/') }}"
+                document: "/home/{{ main_user }}/www/{{ service }}"
+
+            - name: set variable based on branch({{ branch }})
+              set_fact:
+                release: "{% if branch == 'hotfix' or station == 'dev' %}True{% else %}False{% endif %}"
+                release_version: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}-{% if branch == 'hotfix' %}{{ branch }}{% else %}{{ station }}{% endif %}-{{ service_tag }}"
+
+            - name: show deploy info
+              debug:
+                msg:
+                  - "Machine      : {{ host }} (Group)"
+                  - "Path         : {{ document }}/release/{{ release_version }}"
+                  - "Project      : {{ project }}"
+                  - "Branch       : {{ branch }}"
+                  - "Release      : {{ release }}"
+                  - "Force Deploy : {{ force_deploy }}"
+          run_once: yes
+
+        - name: get version of remote:{{ document }}/release
+          shell: ls {{ document }}/release | cut -d - -f 1 --complement
+          register: all_version
+          ignore_errors: yes
+
+        - block:
+            - name: if project is front-end , include this tasks
+              include: need_fetch_service.yml
+              when: "'fe_' in project or 'blueprint' in project"
+
+            - name: if project is back-end , include this tasks
+              include: need_clone_service.yml
+              when: "'fe_' not in project and 'blueprint' not in project"
+          when: service_tag|string not in all_version.stdout or
+                force_deploy|bool
+#      when: "'rd6' in project"
+
+- include: release_version.yml
+  when:
+#    - "'rd6' in project"
+    - service_tag|string not in all_version.stdout or
+      force_deploy|bool
+    - "'rc' in inventory_hostname and service != 'rd' or
+      inventory_hostname == 'qa' or
+      release|bool"

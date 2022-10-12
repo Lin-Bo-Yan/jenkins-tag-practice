@@ -1,0 +1,34 @@
+fatal: [rc
+]: FAILED! => {
+    "changed": true,
+    "cmd": "/usr/bin/docker rm -f leon_lai_dev ;/usr/local/bin/docker-compose -p leon_lai_dev -f /home/leon_lai/dev-leon.yml up -d",
+    "delta": "0:00:08.387353",
+    "end": "2022-10-10 02:28:55.506301",
+    "msg": "non-zero return code",
+    "rc": 1,
+    "start": "2022-10-10 02:28:47.118948",
+    "stderr": "Pulling dev (platform-image:dev)...\nThe image for the service you're trying to recreate has been removed. If you continue, volume data could be lost. Consider backing up your data before continuing.\n\npull access denied for platform-image, repository does not exist or may require 'docker login'",
+    "stderr_lines": [
+        "Pulling dev (platform-image:dev)...",
+        "The image for the service you're trying to recreate has been removed. If you continue, volume data could be lost. Consider backing up your data before continuing.",
+        "",
+        "pull access denied for platform-image, repository does not exist or may require 'docker login'"
+    ],
+    "stdout": "leon_lai_dev\nContinue with the new image? [yN]",
+    "stdout_lines": [
+        "leon_lai_dev",
+        "Continue with the new image? [yN]"
+    ]
+}
+
+/usr/bin/docker rm -f leon_lai_dev  去到 /usr/bin/docker 移除 叫做leon_lai_dev的容器
+
+/usr/local/bin/docker-compose -p leon_lai_dev -f /home/leon_lai/dev-leon.yml up -d
+
+-p 指定備用項目名稱
+-f 指定一個備用的撰寫文件
+
+sudo -s cat /home/leon_lai/dev-leon.yml
+
+docker tag quay-hub.pid.prod/platform/image:dev platform-image:dev
+cat /tmp/awx_tmp/rc_trigger_path

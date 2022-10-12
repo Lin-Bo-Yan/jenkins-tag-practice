@@ -1,0 +1,12 @@
+- name: '刪除過期檔案'
+  hosts: '{{ host }}'
+  gather_facts: false
+  remote_user: ci-user
+  vars_files:
+    - role_vars.yml
+  tasks:
+    - name: '刪除過期檔案'
+      shell: find /home/ci-user/wells_lin/{{item.1}}/release -name "dev-*-*" -ctime 1 -exec rm -rf {} \;
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"

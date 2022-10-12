@@ -1,0 +1,89 @@
+---
+- hosts: "{{ host }}"
+  gather_facts: False
+  max_fail_percentage: 10
+  vars:
+    force_deploy: False
+
+  tasks:
+    - block:
+        - name: get which container of that have artisan file
+          shell: cat /tmp/new_have_artisan
+          register: have_artisan
+      rescue:
+        - name: generate file if file not exist
+          script: pre_push.sh
+
+        - name: get which container of that have artisan file
+          shell: cat /tmp/new_have_artisan
+          register: have_artisan
+
+    - include: for_artisan.yml
+      when: source == 'api_hex'
+      with_items: "{{ have_artisan.stdout_lines }}"
+
+    - block:
+        - name: read now version link path
+          shell: readlink {{ document }}/current
+          register: current
+
+        - name: current -> release/{{ release_version }} , prev -> {{ current.stdout }}
+          file:
+            src: "{{ item.src }}"
+            path: "{{ item.path }}"
+            state: link
+          when: item.source == 'all' or
+                item.source in source
+          with_items:
+            - { source: 'api', src: "release/{{ release_version }}/public", path: "{{ document }}/current" }
+            - { source: 'blue', src: "release/{{ release_version }}", path: "{{ document }}/current" }
+            - { source: 'fe', src: "release/{{ release_version }}", path: "{{ document }}/current" }
+            - { source: 'all', src: "{{ current.stdout }}", path: "{{ document }}/prev" }
+            - { source: 'point_member', src: "release/{{ release_version }}/pointmember.py", path: "{{ document }}/pointmember.py" }
+      rescue:
+        - name: current -> release/{{ release_version }}
+          file:
+            src: "{{ item.src }}"
+            path: "{{ item.path }}"
+            state: link
+          when: item.source in source
+          with_items:
+            - { source: 'api', src: "release/{{ release_version }}/public", path: "{{ document }}/current" }
+            - { source: 'blue', src: "release/{{ release_version }}", path: "{{ document }}/current" }
+            - { source: 'fe', src: "release/{{ release_version }}", path: "{{ document }}/current" }
+            - { source: 'point_member', src: "release/{{ release_version }}/pointmember.py", path: "{{ document }}/pointmember.py" }
+
+    - block:
+        - name: if project is api , execute tasks base on container
+          script: for_api_project.sh
+          register: check_result
+
+        - name: set variable for tasks results
+          set_fact:
+            check_failed: "{% if 'Because' in check_result.stdout %}true{% else %}false{% endif %}"
+
+        - name: echo title
+          local_action: shell echo -e "☠️ Release ⎡{{ release_version }}⎦ failed ☠️ \n" > /tmp/new_check_result
+          run_once: yes
+
+        - block:
+            - name: write check result to local:/tmp/new_check_result
+              local_action: shell echo -e "{{ check_result.stdout }}" >> /tmp/new_check_result
+
+            - include_role:
+                name: send_telegram
+              vars:
+                send_msg: "{{ lookup('file', '/tmp/new_check_result') }}"
+                bot_token: '1422771026:AAGaHE2VV1JT6ayHJiCp3MEmujYq59nyNcY'
+                send_dest: '-1001162051696'
+          when: check_failed and station == 'prod'
+      when:
+        - source == 'api_hex'
+        - "'qa' not in inventory_hostname"
+
+    - name: show release info
+      debug:
+        msg:
+          - "Machine      :  {{ host }} (Group)"
+          - "Now Version  :  {{ document }}/release/{{ release_version }}"
+      run_once: yes

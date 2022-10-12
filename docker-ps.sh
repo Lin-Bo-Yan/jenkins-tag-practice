@@ -1,1 +1,0 @@
-ansible test* -m shell -a "docker ps -a"

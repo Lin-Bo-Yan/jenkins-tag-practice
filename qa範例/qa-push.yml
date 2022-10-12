@@ -1,0 +1,96 @@
+---
+- hosts: "{{host|default('web3')}}"
+  gather_facts: false
+  vars:
+    project: "{{ lookup('env', 'Project')}}"
+    tag: "{{ lookup('env', 'Tag') }}"
+  vars_files:
+    - role_vars.yml
+  tasks:
+    - name: check vars
+      fail:
+        msg: "please assign git project"
+      when: project == ''
+      delegate_to: localhost
+      run_once: true
+    - debug:
+        msg: "WANTTO:{{tag}}"
+      when: tag != ''
+      delegate_to: localhost
+      run_once: true
+    - name: source directory
+      shell: echo {{project}} | sed -n 's/.*\/\([^\/]*\)$/\1/p'
+      register: source
+      delegate_to: localhost
+      run_once: true
+    - name: check push project
+      fail:
+        msg: "project not validate: {{role}}"
+      when: source.stdout not in role
+      delegate_to: localhost
+      run_once: true
+    - name: document root
+      set_fact:
+        document: "/home/ci-user/www/{{item.1}}"
+      when: source.stdout == item.0
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"
+    - name: get tag version
+      shell: echo `ls -1td {{document}}/release/*{{tag}}*|sed -n 's/.*\/\([^\/]*\)$/\1/p'|head -n 2|tail -n 1`
+      register: tag_version
+      when: tag != ''
+    - name: stat directory status
+      stat: path={{document}}/release/{{tag_version.stdout}}
+      register: tagstat
+      when: tag != ''
+    - fail:
+        msg: "{{document}}/release/{{tag_version.stdout}} is not exists!!"
+      when: tag != '' and tagstat.stat.exists == False
+    - name: set to version 1
+      set_fact:
+        to_version: "{{tag_version.stdout}}"
+      when: tag != ''
+    - debug:
+        msg: "JessieTest:{{tag_version.stdout}}"
+    - name: get now version
+      shell: echo `readlink {{document}}/current | cut -d '/' -f 2`
+      register: now_version
+#    - name: get prev version
+#      shell: echo `ls -1t {{document}}/release/|awk '{if ($0 <= {{ now_version.stdout }}) {print}}'|head -n 2|tail -n 1`
+#      register: prev_version
+#      when: tag == ''
+#    - name: set to version 2
+#      set_fact:
+#        to_version: "{{prev_version.stdout}}"
+#      when: tag == ''
+    - name: check to_version
+      fail:
+        msg: "to version not exists"
+      when: to_version == ''
+    - debug:
+        msg: "NOW:{{now_version.stdout}} TO:{{to_version}}"
+    - name: symlink to prev release (frontend)
+      file:
+        state: link
+        path: "{{document}}/prev"
+        src: "release/{{ now_version.stdout }}"
+      when: now_version.stdout != to_version and to_version != '' and source.stdout != 'api_hex'
+    - name: symlink to specify release (frontend)
+      file:
+        state: link
+        path: "{{document}}/current"
+        src: "release/{{ to_version }}"
+      when: now_version.stdout != to_version and to_version != '' and source.stdout != 'api_hex'
+    - name: symlink to prev release (backend)
+      file:
+        state: link
+        path: "{{document}}/prev"
+        src: "release/{{ now_version.stdout }}/public"
+      when: now_version.stdout != to_version and to_version != '' and source.stdout == 'api_hex'
+    - name: symlink to specify release (backend)
+      file:
+        state: link
+        path: "{{document}}/current"
+        src: "release/{{ to_version }}/public"
+      when: now_version.stdout != to_version and to_version != '' and source.stdout == 'api_hex'

@@ -1,45 +1,58 @@
---- 
+---
 - name: 'git clone'
   hosts: localhost
   gather_facts: false
-  vars:
-    git_dir: /home/ci-user/wells_lin/git
+  vars_files:
+    - role_vars.yml
   tasks:
     - name: 'git clone'
       git:
         repo: 'ssh://git@gitlab-pid.vir888.com:10022/wells_lin/{{ project }}.git'
-        dest: '{{ git_dir }}'
+        dest: '/home/ci-user/wells_lin/{{item.1}}/release/{{ tag }}'
         clone: yes
-        update: yes
-    - name: 'git checkout {{ tag }}'
-      git:
-        repo: 'ssh://git@gitlab-pid.vir888.com:10022/wells_lin/{{ project }}.git'
-        dest: '{{ git_dir }}'
+        update: no
         version: "{{ tag }}"
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"
 - name: '部署檔案'
   hosts: '{{ host }}'
   gather_facts: false
   remote_user: ci-user
-  vars:
-    git_dir: /home/ci-user/wells_lin/git
+  vars_files:
+    - role_vars.yml
   tasks:
     - name: '文件複製到test測試機'
-      copy:
-        src: "{{ git_dir }}"
-        dest: "/home/ci-user/wells_lin/"
-    - name: 'docker-compose up'
-      shell: docker-compose -f {{ git_dir }}/docker-compose.yaml up -d
-    - name: "url"
-      uri:
-        url: http://localhost:8082
-        method: GET
-        return_content: yes
-      register: result
+      synchronize:
+        src: "/home/ci-user/wells_lin/{{item.1}}/release/{{ tag }}"
+        dest: "/home/ci-user/wells_lin/{{item.1}}/release/"
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"
+    - name: '更新 current 指向'
+      shell: cd wells_lin/{{item.1}} &&  ln -snf release/{{ tag }} current
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"
+      
+    
 
 
-# ansible-playbook gitClone.yaml -e "project=docker-compose-nginx-php host=test* tag=b12f7c1b"
-# ansible test* -m shell -a "cd /home/ci-user/wells_lin && ls"
-# ansible test1 -m shell -a "curl http://localhost:8082"
-# git log --oneline --graph
-# git tag -d
-# ansible-playbook switch-version.yaml -e "host=test* tag=dev-20220921-version1.0"
+
+
+
+
+
+# ansible test* -m shell -a "ls /home/ci-user/wells_lin/docker-compose-nginx-php/release"
+# ansible test* -m shell -a "ls -lr /home/ci-user/wells_lin/docker-compose-nginx-php"
+# ansible test* -m shell -a "curl http://localhost:8082"
+
+# ansible-playbook /home/ci-user/wells_lin/current_new.yaml -e project=web/bin/fe_admin -e host=web1
+# ansible test* -a hostname
+# ansible test* -m synchronize -a "src=/home/ci-user/wells_lin/docker-compose-nginx-php dest=/home/ci-user/wells_lin/"
+# docker-compose -f /home/ci-user/wells_lin/docker-compose-nginx-php/current/docker-compose.yaml restart
+
+
+
+cd -P current/
+docker inspect wells-nginx-server

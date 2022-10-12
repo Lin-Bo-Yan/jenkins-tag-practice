@@ -1,0 +1,24 @@
+---
+- name: '發佈版本'
+  hosts: "{{host}}"
+  gather_facts: False
+  remote_user: ci-user
+  vars_files:
+    - role_vars.yml
+  tasks:
+    - name: '取得標籤指向'
+      shell: "readlink /home/ci-user/wells_lin/{{item.1}}/current"
+      register: directory
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"
+    - debug:
+        msg: "{{item.0}} => {{item.1}}"
+      with_together:
+        - "{{directory.results | map(attribute='cmd') | list}}"
+        - "{{directory.results | map(attribute='stdout_lines') | list}}"
+    - name: '更新 current 指向'
+      shell: cd wells_lin/{{item.1}} &&  ln -snf release/{{ tag }} current
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"

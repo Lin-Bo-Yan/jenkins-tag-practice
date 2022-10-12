@@ -1,0 +1,19 @@
+---
+- hosts: "{{host|default('vault2')}}"
+  gather_facts: False
+  vars_prompt:
+  - name: "project"
+    prompt: "Project Name:"
+    private: no
+    default: rd6/api_hex
+  tasks:
+    - name: directory
+      set_fact:
+        service: "{{ item }}"
+      when: item in project | regex_replace('.*/')
+      with_items: "{{ 'admin, agent, api, rd'.split(', ') }}"
+    - name: document root (prod)
+      shell: "readlink /home/rd6-admin/www/{{ service }}/current"
+      register: prod_directory
+    - debug:
+        msg: "{{ service }} => {{ prod_directory.stdout }}"

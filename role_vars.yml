@@ -1,0 +1,2 @@
+role: ['docker-compose-nginx-php','docker-webservies']
+docroot: ['docker-compose-nginx-php','docker-webservies']

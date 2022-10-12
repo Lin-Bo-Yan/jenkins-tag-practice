@@ -1,0 +1,24 @@
+---
+- hosts: "{{host|default('test1')}}"
+  gather_facts: False
+  vars_files:
+    - role_vars.yml
+  tasks:
+    - name: get push env  # 獲取推送環境
+      shell: echo $HOSTNAME | sed -n 's/.*\.\([^\/]*\)$/\1/p'
+      register: env
+    - name: document root (dev) # 文檔根 (dev)
+      shell: "readlink /home/ci-user/wells_lin/{{item.1}}/current"
+      register: qa_directory
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"
+      when: env.stdout == 'dev'
+      run_once: true
+    - debug:
+        msg: "{{item.0}} => {{item.1}}"
+      with_together:
+        - "{{qa_directory.results | map(attribute='cmd') | list}}"
+        - "{{qa_directory.results | map(attribute='stdout_lines') | list}}"
+      when: env.stdout == 'dev'
+      run_once: true

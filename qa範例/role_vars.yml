@@ -1,0 +1,2 @@
+role: ['fe_admin', 'fe_agent', 'fe_rd6', 'api_hex']
+docroot: ['admin', 'agent', 'rd', 'api']

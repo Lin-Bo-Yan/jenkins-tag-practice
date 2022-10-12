@@ -1,0 +1,43 @@
+---
+- hosts: "{{host|default('web3')}}"
+  gather_facts: false
+  vars:
+    project: "{{ lookup('env', 'Project')}}"
+  vars_files:
+    - role_vars.yml
+  vars_prompt:
+    - name: "project"
+      prompt: "project name:"
+      private: no
+      default: rd6/fe_admin
+  tasks:
+    - name: check vars
+      fail:
+        msg: "please assign git project"
+      when: project == ''
+      run_once: true
+    - name: source directory
+      shell: echo {{project}} | sed -n 's/.*\/\([^\/]*\)$/\1/p'
+      register: source
+      delegate_to: localhost
+      run_once: true
+    - name: check push project
+      fail:
+        msg: "project not validate: {{role}}"
+      when: source.stdout not in role
+      run_once: true
+    - name: document root
+      set_fact:
+        document: "/home/ci-user/www/{{item.1}}"
+      when: source.stdout == item.0
+      with_together:
+        - "{{role}}"
+        - "{{docroot}}"
+    - name: get all release directory
+      shell: ls -1r {{document}}/release/
+      register: directory
+      run_once: true
+    - name: All existed version
+      debug: var=item
+      with_items: "{{directory.stdout.splitlines()}}"
+      run_once: true
